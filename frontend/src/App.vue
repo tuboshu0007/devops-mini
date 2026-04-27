@@ -17,13 +17,43 @@ const filteredServices = computed(() => {
     s.name.toLowerCase().includes(query) || 
     s.id.toLowerCase().includes(query) ||
     s.category.toLowerCase().includes(query) ||
-    String(s.listen).includes(query)
+    String(s.listen).includes(query) ||
+    (s.project && s.project.toLowerCase().includes(query))
   )
 })
+
+const groupedServices = computed(() => {
+  const groups = {}
+  for (const service of filteredServices.value) {
+    const project = service.project || '未分类'
+    if (!groups[project]) {
+      groups[project] = []
+    }
+    groups[project].push(service)
+  }
+  return groups
+})
+
+const projectList = computed(() => {
+  return Object.keys(groupedServices.value).sort()
+})
+
 const operationInProgress = ref(null)
 let socket = null
 
 const API_BASE = 'http://localhost:13001'
+
+const projectColors = {
+  '通侦系统': '#409eff',
+  '未分类': '#909399'
+}
+
+function getProjectColor(project) {
+  if (projectColors[project]) return projectColors[project]
+  const hash = project.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#722ed1', '#13c2c2', '#eb2f96']
+  return colors[hash % colors.length]
+}
 
 async function fetchServices() {
   try {
@@ -168,18 +198,13 @@ onUnmounted(() => {
   <div class="container">
     <header class="header">
       <h1>DevOps-Mini</h1>
-      <!-- <div class="header-actions">
-        <button class="btn-refresh" @click="fetchServices" :disabled="loading">
-          刷新
-        </button>
-      </div> -->
     </header>
     
     <main class="main">
       <div class="search-bar">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索服务名称、ID、类别或端口..."
+          placeholder="搜索服务名称、ID、类别、端口或项目..."
           prefix-icon="Search"
           clearable
           class="search-input"
@@ -189,52 +214,62 @@ onUnmounted(() => {
         </span>
       </div>
       
-      <div class="services-grid">
-        <div 
-          v-for="service in filteredServices" 
-          :key="service.id"
-          class="service-card"
-          :class="{ 'is-running': service.running }"
-        >
-          <div class="service-header">
-            <div class="service-info">
-              <span class="service-name">{{ service.name }}</span>
-              <span class="service-meta">{{ service.id }} | {{ getCategoryLabel(service.category) }} | 端口: {{ service.listen }}</span>
-              <a v-if="service.webUrl" @click="copyWebUrl(service.webUrl)" class="service-url">
-                {{ service.webUrl }}
-                <el-icon class="copy-icon" :size="14"><CopyDocument /></el-icon>
-              </a>
+      <div class="services-section" v-for="project in projectList" :key="project">
+        <div class="project-header" :style="{ borderLeftColor: getProjectColor(project) }">
+          <span class="project-title">{{ project }}</span>
+          <span class="project-count">{{ groupedServices[project].length }} 个服务</span>
+        </div>
+        <div class="services-grid">
+          <div 
+            v-for="service in groupedServices[project]" 
+            :key="service.id"
+            class="service-card"
+            :class="{ 'is-running': service.running }"
+          >
+            <div class="service-header">
+              <div class="service-info">
+                <span class="service-name">{{ service.name }}</span>
+                <span class="service-meta">{{ service.id }} | {{ getCategoryLabel(service.category) }} | 端口: {{ service.listen }}</span>
+                <a v-if="service.webUrl" @click="copyWebUrl(service.webUrl)" class="service-url">
+                  {{ service.webUrl }}
+                  <el-icon class="copy-icon" :size="14"><CopyDocument /></el-icon>
+                </a>
+              </div>
+              <div class="service-status" :class="getStatusClass(service.running)">
+                <span class="status-icon">{{ getStatusIcon(service.running) }}</span>
+                {{ getStatusText(service.running) }}
+              </div>
             </div>
-            <div class="service-status" :class="getStatusClass(service.running)">
-              <span class="status-icon">{{ getStatusIcon(service.running) }}</span>
-              {{ getStatusText(service.running) }}
+            
+            <div class="service-actions">
+              <button 
+                class="btn btn-start" 
+                @click="startService(service)"
+                :disabled="service.running || operationInProgress === service.id"
+              >
+                启动
+              </button>
+              <button 
+                class="btn btn-stop" 
+                @click="stopService(service.id)"
+                :disabled="!service.running || operationInProgress === service.id"
+              >
+                停止
+              </button>
+              <button 
+                class="btn btn-restart" 
+                @click="restartService(service.id)"
+                :disabled="operationInProgress === service.id"
+              >
+                重启
+              </button>
             </div>
-          </div>
-          
-          <div class="service-actions">
-            <button 
-              class="btn btn-start" 
-              @click="startService(service)"
-              :disabled="service.running || operationInProgress === service.id"
-            >
-              启动
-            </button>
-            <button 
-              class="btn btn-stop" 
-              @click="stopService(service.id)"
-              :disabled="!service.running || operationInProgress === service.id"
-            >
-              停止
-            </button>
-            <button 
-              class="btn btn-restart" 
-              @click="restartService(service.id)"
-              :disabled="operationInProgress === service.id"
-            >
-              重启
-            </button>
           </div>
         </div>
+      </div>
+      
+      <div v-if="filteredServices.length === 0" class="empty-state">
+        <span>暂无服务</span>
       </div>
     </main>
   </div>
@@ -268,26 +303,6 @@ onUnmounted(() => {
   font-size: 20px;
   font-weight: 600;
   color: #303133;
-}
-
-.btn-refresh {
-  padding: 8px 16px;
-  background: #409eff;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.btn-refresh:hover:not(:disabled) {
-  background: #66b1ff;
-}
-
-.btn-refresh:disabled {
-  background: #a0cfff;
-  cursor: not-allowed;
 }
 
 .main {
@@ -329,6 +344,43 @@ onUnmounted(() => {
 .search-hint {
   color: #909399;
   font-size: 14px;
+}
+
+.services-section {
+  margin-bottom: 32px;
+}
+
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 8px;
+  border-left: 4px solid #409eff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.project-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.project-count {
+  font-size: 14px;
+  color: #909399;
+  background: #f0f2f5;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #909399;
+  font-size: 16px;
 }
 
 .services-grid {
@@ -402,22 +454,6 @@ onUnmounted(() => {
 
 .copy-icon:hover {
   background: #e4e7ed;
-}
-
-.service-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.service-port {
-  font-size: 13px;
-  color: #909399;
-}
-
-.service-meta {
-  font-size: 13px;
-  color: #909399;
 }
 
 .service-status {
