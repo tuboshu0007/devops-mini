@@ -19,8 +19,28 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-const services = require('./services.js');
+const projects = require('./services.js');
 let runningProcesses = new Map();
+
+function findService(serviceId) {
+  for (const project of projects) {
+    const service = project.services.find(s => s.id === serviceId);
+    if (service) {
+      return { service, project };
+    }
+  }
+  return null;
+}
+
+function getAllServices() {
+  const allServices = [];
+  for (const project of projects) {
+    for (const service of project.services) {
+      allServices.push({ ...service, project: project.name });
+    }
+  }
+  return allServices;
+}
 
 async function checkPortStatus(port, webUrl) {
   return new Promise((resolve) => {
@@ -62,8 +82,28 @@ async function getServiceStatus(service) {
 
 app.get('/api/services', async (req, res) => {
   try {
-    const statuses = await Promise.all(services.map(getServiceStatus));
+    const allServices = getAllServices();
+    const statuses = await Promise.all(allServices.map(getServiceStatus));
     res.json(statuses);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/projects', async (req, res) => {
+  try {
+    const projectStatuses = await Promise.all(
+      projects.map(async (project) => {
+        const serviceStatuses = await Promise.all(
+          project.services.map(getServiceStatus)
+        );
+        return {
+          ...project,
+          services: serviceStatuses
+        };
+      })
+    );
+    res.json(projectStatuses);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -71,11 +111,13 @@ app.get('/api/services', async (req, res) => {
 
 app.post('/api/services/:id/start', async (req, res) => {
   const { id } = req.params;
-  const service = services.find(s => s.id === id);
+  const found = findService(id);
   
-  if (!service) {
+  if (!found) {
     return res.status(404).json({ error: 'Service not found' });
   }
+  
+  const { service } = found;
   
   if (runningProcesses.has(id)) {
     return res.status(400).json({ error: 'Service is already running' });
@@ -104,11 +146,13 @@ app.post('/api/services/:id/start', async (req, res) => {
 
 app.post('/api/services/:id/stop', async (req, res) => {
   const { id } = req.params;
-  const service = services.find(s => s.id === id);
+  const found = findService(id);
   
-  if (!service) {
+  if (!found) {
     return res.status(404).json({ error: 'Service not found' });
   }
+  
+  const { service } = found;
   
   try {
     if (service.stop) {
@@ -149,11 +193,13 @@ app.post('/api/services/:id/stop', async (req, res) => {
 
 app.post('/api/services/:id/restart', async (req, res) => {
   const { id } = req.params;
-  const service = services.find(s => s.id === id);
+  const found = findService(id);
   
-  if (!service) {
+  if (!found) {
     return res.status(404).json({ error: 'Service not found' });
   }
+  
+  const { service } = found;
   
   try {
     if (service.restart) {
@@ -196,8 +242,22 @@ app.post('/api/services/:id/restart', async (req, res) => {
 
 setInterval(async () => {
   try {
-    const statuses = await Promise.all(services.map(getServiceStatus));
+    const allServices = getAllServices();
+    const statuses = await Promise.all(allServices.map(getServiceStatus));
     io.emit('servicesStatus', statuses);
+    
+    const projectStatuses = await Promise.all(
+      projects.map(async (project) => {
+        const serviceStatuses = await Promise.all(
+          project.services.map(getServiceStatus)
+        );
+        return {
+          ...project,
+          services: serviceStatuses
+        };
+      })
+    );
+    io.emit('projectsStatus', projectStatuses);
   } catch (error) {
     console.error('Status check error:', error);
   }

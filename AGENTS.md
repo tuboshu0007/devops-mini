@@ -61,7 +61,8 @@ devops-mini/
 ├── server/
 │   ├── package.json
 │   ├── index.js          # Express + Socket.IO server
-│   └── services.js       # Service configurations (JS module)
+│   ├── services.js       # Project configurations (JS module)
+│   └── interface.d.ts    # TypeScript type definitions
 └── frontend/
     ├── package.json
     ├── vite.config.js
@@ -152,38 +153,51 @@ function fetchData() {
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/services | Get all services status |
+| GET | /api/services | Get all services status (flat array) |
+| GET | /api/projects | Get all projects with services status |
 | POST | /api/services/:id/start | Start a service |
 | POST | /api/services/:id/stop | Stop a service |
 | POST | /api/services/:id/restart | Restart a service |
 
 ## Service Configuration
 
+Type definitions are declared in `server/interface.d.ts`:
+- `ServiceItem`: id, category, name, listen, start, webUrl?, stop?, restart?, description?
+- `ProjectItem`: id, name, description, webUrl?, services: ServiceItem[]
+
 Edit `server/services.js`:
 
 ```javascript
 module.exports = [
   {
-    id: "my-service",
-    name: "My Service",
-    category: "web",
-    project: "My Project",
-    listen: 3000,
+    id: "my-project",
+    name: "My Project",
+    description: "Project description",
     webUrl: "http://localhost:3000",
-    start: "C:\\path\\to\\start.bat",
-    stop: "C:\\path\\to\\stop.bat",
-    restart: "C:\\path\\to\\restart.bat"
+    services: [
+      {
+        id: "my-service",
+        name: "My Service",
+        category: "web",
+        listen: 3000,
+        start: "C:\\path\\to\\start.bat",
+        stop: "C:\\path\\to\\stop.bat",
+        restart: "C:\\path\\to\\restart.bat",
+        description: "Service description"
+      }
+    ]
   }
 ]
 ```
 
-**Required fields:** id, name, category, listen, start
-**Optional fields:** project, webUrl, stop, restart
+**ProjectItem fields:** id, name, description, webUrl?, services[]
+**ServiceItem required:** id, category, name, listen, start
+**ServiceItem optional:** webUrl, stop, restart, description
 
 ## Socket.IO Events
 
-- `servicesStatus`: Full services list update
-- `serviceStatus`: Single service update
+- `servicesStatus`: Full services list update (flat array)
+- `projectsStatus`: Projects with services status update
 - Connection: `http://localhost:13001`
 
 ## Development Notes
