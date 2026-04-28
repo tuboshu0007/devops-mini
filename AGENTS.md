@@ -19,23 +19,35 @@ npm run preview             # Preview production build
 ### Running Both
 Start server first, then frontend in separate terminals.
 
-### Testing
+## Testing
+
 No test framework configured. To add and run tests:
 
 **Server (Jest):**
 ```bash
 cd server && npm install --save-dev jest
+# Run all tests
+npm test
+# Run single test file
 npm test -- --testPathPattern=filename
+# Run with coverage
+npm test -- --coverage
 ```
 
 **Frontend (Vitest):**
 ```bash
 cd frontend && npm install --save-dev vitest
-npm test run filename
+# Run all tests
+npm test
+# Run single test file
+npm test run filename.test.js
+# Run with coverage
+npm test run --coverage
 ```
 
-### Linting
-To add ESLint for frontend:
+## Linting
+
+**ESLint (frontend):**
 ```bash
 cd frontend && npm install --save-dev eslint @eslint/js eslint-plugin-vue
 npx eslint src/ --ext .vue,.js
@@ -49,7 +61,7 @@ devops-mini/
 ├── server/
 │   ├── package.json
 │   ├── index.js          # Express + Socket.IO server
-│   └── services.js     # Service configurations (JS module)
+│   └── services.js       # Service configurations (JS module)
 └── frontend/
     ├── package.json
     ├── vite.config.js
@@ -92,8 +104,8 @@ import { CopyDocument } from "@element-plus/icons-vue"
 
 ### Formatting
 - Indentation: 2 spaces
-- No semicolons at line ends
-- Double quotes preferred
+- Use semicolons consistently (match existing codebase)
+- Single quotes for strings (match existing codebase)
 - Trailing commas in multiline objects/arrays
 - Line length: under 100 characters
 
@@ -134,6 +146,7 @@ function fetchData() {
 - Use scoped styles (`<style scoped>`)
 - Prefer flexbox for layout, grid for cards
 - Keep selectors simple and specific
+- Use meaningful class names with kebab-case
 
 ## API Endpoints
 
@@ -154,12 +167,12 @@ module.exports = [
     id: "my-service",
     name: "My Service",
     category: "web",
-    project: "My Project",  // optional, for grouping
+    project: "My Project",
     listen: 3000,
     webUrl: "http://localhost:3000",
     start: "C:\\path\\to\\start.bat",
-    stop: "C:\\path\\to\\stop.bat",    // optional
-    restart: "C:\\path\\to\\restart.bat"  // optional
+    stop: "C:\\path\\to\\stop.bat",
+    restart: "C:\\path\\to\\restart.bat"
   }
 ]
 ```
