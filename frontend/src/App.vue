@@ -1,19 +1,33 @@
 <script setup>
+// ==================== 模块引入 ====================
+// Vue组合式API
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+// Socket.IO客户端（实时通信）
 import { io } from 'socket.io-client'
+// Element Plus组件
 import { ElMessage, ElIcon } from 'element-plus'
+// Element Plus图标
 import { CopyDocument, Search, VideoPlay, VideoPause, Refresh } from '@element-plus/icons-vue'
+// 编程语言图标（npm包）
 import javaIcon from 'programming-languages-logos/src/java/java.svg'
 import goIcon from 'programming-languages-logos/src/go/go.svg'
 import pythonIcon from 'programming-languages-logos/src/python/python.svg'
 import dotnetIcon from 'programming-languages-logos/src/csharp/csharp.svg'
 import phpIcon from 'programming-languages-logos/src/php/php.svg'
 import htmlIcon from 'programming-languages-logos/src/html/html.svg'
+// 自定义图标（本地SVG）
 import nodeIcon from './assets/icons/node.svg'
 import rustIcon from './assets/icons/rust.svg'
 import cppIcon from './assets/icons/cpp.svg'
 import vmIcon from './assets/icons/vm.svg'
 
+// ==================== 分类图标映射 ====================
+
+/**
+ * 获取分类图标
+ * @param {string} category - 服务分类
+ * @returns {string} - 图标import路径
+ */
 function getCategoryIcon(category) {
   const icons = {
     web: htmlIcon,
@@ -30,55 +44,29 @@ function getCategoryIcon(category) {
   return icons[category] || icons.web
 }
 
+// 注册Element Plus图标为组件
 defineOptions({ components: { ElIcon, CopyDocument, Search } })
 
+// ==================== 响应式状态 ====================
+
+// 服务列表（从API获取）
 const services = ref([])
-const searchQuery = ref("")
+// 项目列表（从API获取）
+const projects = ref([])
+// 搜索关键词
+const searchQuery = ref('')
+// 操作中加载状态（防止重复操作）
 const loading = ref(false)
-
-const filteredServices = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return services.value
-  return services.value.filter(s => 
-    s.name.toLowerCase().includes(query) || 
-    s.id.toLowerCase().includes(query) ||
-    s.category.toLowerCase().includes(query) ||
-    String(s.listen).includes(query) ||
-    (s.project && s.project.toLowerCase().includes(query))
-  )
-})
-
-const groupedServices = computed(() => {
-  const groups = {}
-  for (const service of filteredServices.value) {
-    const project = service.project || '未分类'
-    if (!groups[project]) {
-      groups[project] = []
-    }
-    groups[project].push(service)
-  }
-  return groups
-})
-
-const projectList = computed(() => {
-  return Object.keys(groupedServices.value).sort()
-})
-
-const projectWebUrls = computed(() => {
-  const urls = {}
-  for (const project of projectList.value) {
-    if (projectInfo.value[project]?.webUrl) {
-      urls[project] = projectInfo.value[project].webUrl
-    }
-  }
-  return urls
-})
-
+// 当前进行中的操作ID
 const operationInProgress = ref(null)
+// Socket.IO连接实例
 let socket = null
 
+// 后端API地址
 const API_BASE = 'http://localhost:13001'
 
+// ==================== 项目颜色 ====================
+// 用于给不同项目分配不同的边框颜色（通过hash取模）
 const PROJECT_COLORS = [
   '#409eff', '#67c23a', '#e6a23c', '#f56c6c',
   '#909399', '#722ed1', '#13c2c2', '#eb2f96',
@@ -90,6 +78,8 @@ const PROJECT_COLORS = [
   '#14a8a8', '#52c41a', '#f5222d', '#eb2f96'
 ]
 
+// ==================== 分类颜色配置 ====================
+// 用于服务卡片上的分类标签
 const CATEGORY_COLORS = {
   web: { bg: '#409eff', text: '#fff' },
   java: { bg: '#e6a23c', text: '#fff' },
@@ -103,15 +93,99 @@ const CATEGORY_COLORS = {
   '虚拟机': { bg: '#722ed1', text: '#fff' }
 }
 
+// ==================== 辅助函数 ====================
+
+/**
+ * 获取项目的显示颜色（通过项目名hash）
+ * @param {string} project - 项目名称
+ * @returns {string} - 颜色hex值
+ */
 function getProjectColor(project) {
   const hash = project.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
   return PROJECT_COLORS[hash % PROJECT_COLORS.length]
 }
 
+/**
+ * 获取分类的颜色配置
+ * @param {string} category - 分类名称
+ * @returns {{bg: string, text: string}}
+ */
 function getCategoryColor(category) {
   return CATEGORY_COLORS[category] || { bg: '#909399', text: '#fff' }
 }
 
+// ==================== 计算属性 ====================
+
+/**
+ * 根据搜索词过滤服务
+ * 支持按名称、ID、分类、端口、项目名搜索
+ */
+const filteredServices = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return services.value
+  return services.value.filter(s => 
+    s.name.toLowerCase().includes(query) || 
+    s.id.toLowerCase().includes(query) ||
+    s.category.toLowerCase().includes(query) ||
+    String(s.listen).includes(query) ||
+    (s.project && s.project.toLowerCase().includes(query))
+  )
+})
+
+/**
+ * 按项目分组服务
+ * 返回对象，key为项目名，value为该项目的服务数组
+ */
+const groupedServices = computed(() => {
+  const groups = {}
+  for (const service of filteredServices.value) {
+    const project = service.project || '未分类'
+    if (!groups[project]) {
+      groups[project] = []
+    }
+    groups[project].push(service)
+  }
+  return groups
+})
+
+/**
+ * 获取项目名称列表（排序后）
+ * 用于模板中遍历项目
+ */
+const projectList = computed(() => {
+  return Object.keys(groupedServices.value).sort()
+})
+
+/**
+ * 获取每个项目的Web URL映射
+ */
+const projectWebUrls = computed(() => {
+  const urls = {}
+  for (const project of projectList.value) {
+    if (projectInfo.value[project]?.webUrl) {
+      urls[project] = projectInfo.value[project].webUrl
+    }
+  }
+  return urls
+})
+
+/**
+ * 获取项目信息映射表
+ * key: 项目名, value: { webUrl, description }
+ */
+const projectInfo = computed(() => {
+  const info = {}
+  for (const p of projects.value) {
+    info[p.name] = { webUrl: p.webUrl || null, description: p.description || '' }
+  }
+  return info
+})
+
+// ==================== API操作 ====================
+
+/**
+ * 从后端获取服务和项目数据
+ */
 async function fetchServices() {
   try {
     const [servicesRes, projectsRes] = await Promise.all([
@@ -125,17 +199,12 @@ async function fetchServices() {
   }
 }
 
-const projects = ref([])
-
-const projectInfo = computed(() => {
-  const info = {}
-  for (const p of projects.value) {
-    info[p.name] = { webUrl: p.webUrl || null, description: p.description || '' }
-  }
-  return info
-})
-
+/**
+ * 启动服务
+ * @param {Object} service - 服务对象
+ */
 async function startService(service) {
+  // 防止重复点击
   if (operationInProgress.value) return
   operationInProgress.value = service.id
   loading.value = true
@@ -144,6 +213,7 @@ async function startService(service) {
     const data = await res.json()
     if (data.success) {
       ElMessage.success('服务启动中...')
+      // 等待服务启动
       await new Promise(r => setTimeout(r, 3500))
       await fetchServices()
       const updated = services.value.find(s => s.id === service.id)
@@ -163,6 +233,10 @@ async function startService(service) {
   }
 }
 
+/**
+ * 停止服务
+ * @param {string} id - 服务ID
+ */
 async function stopService(id) {
   if (operationInProgress.value) return
   operationInProgress.value = id
@@ -191,6 +265,10 @@ async function stopService(id) {
   }
 }
 
+/**
+ * 重启服务
+ * @param {string} id - 服务ID
+ */
 async function restartService(id) {
   if (operationInProgress.value) return
   operationInProgress.value = id
@@ -219,11 +297,20 @@ async function restartService(id) {
   }
 }
 
+/**
+ * 获取分类的显示标签
+ * @param {string} category - 分类名
+ * @returns {string}
+ */
 function getCategoryLabel(category) {
   const labels = { web: 'Web', java: 'Java', go: 'Go', node: 'Node', 'c++': 'C++', '虚拟机': '虚拟机' }
   return labels[category] || category
 }
 
+/**
+ * 复制Web URL到剪贴板
+ * @param {string} url - 要复制的URL
+ */
 function copyWebUrl(url) {
   navigator.clipboard.writeText(url).then(() => {
     ElMessage.success('已复制')
@@ -233,22 +320,41 @@ function copyWebUrl(url) {
   })
 }
 
+/**
+ * 获取服务的Web URL
+ * @param {Object} service - 服务对象
+ * @returns {string|null}
+ */
 function getServiceWebUrl(service) {
   return service.webUrl || null
 }
 
+// ==================== 生命周期钩子 ====================
+
+/**
+ * 组件挂载时初始化
+ * 1. 获取初始数据
+ * 2. 连接Socket.IO监听实时更新
+ */
 onMounted(() => {
   fetchServices()
   
+  // 建立Socket.IO连接用于实时状态更新
   socket = io(API_BASE)
+  // 监听服务状态更新
   socket.on('servicesStatus', (data) => {
     services.value = data
   })
+  // 监听项目状态更新
   socket.on('projectsStatus', (data) => {
     projects.value = data
   })
 })
 
+/**
+ * 组件卸载时断开连接
+ * 防止内存泄漏
+ */
 onUnmounted(() => {
   if (socket) socket.disconnect()
 })
