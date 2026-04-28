@@ -2,207 +2,151 @@
 
 DevOps dashboard for monitoring and controlling services. Node.js/Express backend + Vue 3 frontend.
 
-## Build Commands
+---
 
-### Server (port 13001)
+## Quick Start
+
+### Development
 ```bash
+# Terminal 1 - Start server (port 13001)
 cd server && npm start
+
+# Terminal 2 - Start frontend (port 15173)
+cd frontend && npm run dev
 ```
 
-### Frontend (port 15173)
+### Production Build
 ```bash
-cd frontend && npm run dev      # Dev server
-npm run build                # Production build
-npm run preview             # Preview production build
+cd frontend && npm run build && npm run preview
 ```
 
-### Running Both
-Start server first, then frontend in separate terminals.
+---
 
-## Testing
+## Build / Test / Lint Commands
 
-No test framework configured. To add and run tests:
+| Command | Description |
+|---------|-------------|
+| `cd server && npm start` | Start Express server |
+| `cd frontend && npm run dev` | Start Vite dev server |
+| `cd frontend && npm run build` | Build for production |
+| `cd frontend && npm run preview` | Preview production build |
 
-**Server (Jest):**
-```bash
-cd server && npm install --save-dev jest
-# Run all tests
-npm test
-# Run single test file
-npm test -- --testPathPattern=filename
-# Run with coverage
-npm test -- --coverage
-```
+**To add Jest (server):** `npm install --save-dev jest`  
+**To add Vitest (frontend):** `npm install --save-dev vitest`
 
-**Frontend (Vitest):**
-```bash
-cd frontend && npm install --save-dev vitest
-# Run all tests
-npm test
-# Run single test file
-npm test run filename.test.js
-# Run with coverage
-npm test run --coverage
-```
-
-## Linting
-
-**ESLint (frontend):**
-```bash
-cd frontend && npm install --save-dev eslint @eslint/js eslint-plugin-vue
-npx eslint src/ --ext .vue,.js
-```
-
-## Project Structure
-
-```
-devops-mini/
-├── AGENTS.md              # This file
-├── server/
-│   ├── package.json
-│   ├── index.js          # Express + Socket.IO server
-│   ├── services.js       # Project configurations (JS module)
-│   └── interface.d.ts    # TypeScript type definitions
-└── frontend/
-    ├── package.json
-    ├── vite.config.js
-    └── src/
-        ├── main.js
-        ├── App.vue
-        └── style.css
-```
+---
 
 ## Code Style Guidelines
 
 ### Language Standards
-- **Server**: CommonJS (require/module.exports)
-- **Frontend**: ES Modules (import/export)
-- **No TypeScript** - Plain JavaScript + Vue 3 Composition API
+| Layer | Standard | Import Style |
+|-------|----------|---------------|
+| Server | CommonJS | require/module.exports |
+| Frontend | ES Modules | import/export |
+| Vue | Composition API | `<script setup>` |
 
 ### Import Conventions
-**Server:**
-```javascript
-const express = require("express")
-const { exec, spawn } = require("child_process")
-```
-
-**Frontend:**
-```javascript
-import { ref, onMounted, computed } from "vue"
-import { io } from "socket.io-client"
-import { CopyDocument } from "@element-plus/icons-vue"
-```
+**Server:** `const express = require('express')`  
+**Frontend:** `import { ref } from 'vue'`
 
 ### Naming Conventions
 | Type | Convention | Example |
-|------|------------|---------|
+|------|-------------|---------|
 | Files (JS) | camelCase | index.js |
 | Files (Vue) | PascalCase | App.vue |
-| Variables | camelCase | services, runningProcesses |
-| Constants | UPPER_SNAKE_CASE | API_BASE, CONFIG_FILE |
-| Components | PascalCase | ServiceCard |
+| Variables | camelCase | services |
+| Constants | UPPER_SNAKE_CASE | API_BASE |
 | CSS Classes | kebab-case | .service-card |
 
-### Formatting
-- Indentation: 2 spaces
-- Use semicolons consistently (match existing codebase)
-- Single quotes for strings (match existing codebase)
-- Trailing commas in multiline objects/arrays
-- Line length: under 100 characters
+### Formatting Rules
+- **Indentation:** 2 spaces
+- **Quotes:** Single quotes
+- **Semicolons:** Always use
+- **Line length:** Under 100 characters
 
 ### Vue Component Structure
 ```vue
 <script setup>
-import { ref, computed } from "vue"
-
+import { ref, computed } from 'vue'
 const services = ref([])
 const filtered = computed(() => services.value.filter(s => s.running))
-
-function fetchData() {
-  // async fetch with try/catch
-}
 </script>
-
 <template>
-  <div class="container">{{ filtered.length }}</div>
+  <div v-for="service in filtered" :key="service.id">{{ service.name }}</div>
 </template>
-
 <style scoped>
 .container { padding: 20px; }
 </style>
 ```
 
 ### Error Handling
-**Server**: Return JSON with HTTP status codes
-| Code | Meaning |
-|------|---------|
-| 400 | Bad request |
-| 404 | Not found |
-| 409 | Conflict |
-| 500 | Internal error |
-
-**Frontend**: try/catch + ElMessage for errors
+**Server:** `res.status(400).json({ error: 'Bad request' })`  
+**Frontend:** `try { ... } catch (err) { ElMessage.error(err.message) }`
 
 ### CSS Guidelines
 - Use scoped styles (`<style scoped>`)
-- Prefer flexbox for layout, grid for cards
-- Keep selectors simple and specific
+- Prefer flexbox for layout, CSS grid for cards
 - Use meaningful class names with kebab-case
 
-## API Endpoints
+---
 
+## API Endpoints
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/services | Get all services status (flat array) |
-| GET | /api/projects | Get all projects with services status |
+| GET | /api/services | Get all services status |
 | POST | /api/services/:id/start | Start a service |
 | POST | /api/services/:id/stop | Stop a service |
 | POST | /api/services/:id/restart | Restart a service |
 
+---
+
 ## Service Configuration
 
-Type definitions are declared in `server/interface.d.ts`:
-- `ServiceItem`: id, category, name, listen, start, webUrl?, stop?, restart?, description?
-- `ProjectItem`: id, name, description, webUrl?, services: ServiceItem[]
-
 Edit `server/services.js`:
-
 ```javascript
 module.exports = [
   {
-    id: "my-project",
-    name: "My Project",
-    description: "Project description",
-    webUrl: "http://localhost:3000",
+    id: 'my-project',
+    name: 'My Project',
     services: [
       {
-        id: "my-service",
-        name: "My Service",
-        category: "web",
+        id: 'my-service',
+        name: 'My Service',
+        category: 'web',
         listen: 3000,
-        start: "C:\\path\\to\\start.bat",
-        stop: "C:\\path\\to\\stop.bat",
-        restart: "C:\\path\\to\\restart.bat",
-        description: "Service description"
+        start: 'C:\\path\\to\\start.bat'
       }
     ]
   }
 ]
 ```
 
-**ProjectItem fields:** id, name, description, webUrl?, services[]
-**ServiceItem required:** id, category, name, listen, start
-**ServiceItem optional:** webUrl, stop, restart, description
+**ProjectItem fields:** id, name, description?, webUrl?, services[]  
+**ServiceItem required:** id, category, name, listen, start  
+**ServiceItem optional:** webUrl, stop, restart?, description?
+
+### Category Support
+Add categories in frontend/App.vue:
+1. `getCategoryIcon(category)` - icon mapping
+2. `getCategoryLabel(category)` - label text
+
+Icons: Use `programming-languages-logos` npm package or custom SVG in `assets/icons/`
+
+---
 
 ## Socket.IO Events
+| Event | Data | Description |
+|-------|------|-------------|
+| servicesStatus | ServiceItem[] | Full services list |
+| projectsStatus | ProjectItem[] | Projects with status |
 
-- `servicesStatus`: Full services list update (flat array)
-- `projectsStatus`: Projects with services status update
-- Connection: `http://localhost:13001`
+**Connection:** `http://localhost:13001`
+
+---
 
 ## Development Notes
-
-- Server polls statuses every 1 second (setInterval)
+- Server polls status every 1 second via setInterval
 - Real-time updates via Socket.IO
-- Frontend: minimal CSS, Element Plus for UI
-- Server state is in-memory (no database)
+- Frontend uses Element Plus for UI components
+- Category icons render inline with service title
+- Buttons include icons from @element-plus/icons-vue
