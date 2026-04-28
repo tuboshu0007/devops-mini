@@ -148,18 +148,6 @@ async function restartService(id) {
   }
 }
 
-function getStatusClass(running) {
-  return running ? 'status-running' : 'status-stopped'
-}
-
-function getStatusIcon(running) {
-  return running ? '●' : '○'
-}
-
-function getStatusText(running) {
-  return running ? '运行中' : '已停止'
-}
-
 function getCategoryLabel(category) {
   const labels = { web: 'Web', java: 'Java', go: 'Go', node: 'Node' }
   return labels[category] || category
@@ -226,22 +214,29 @@ onUnmounted(() => {
             class="service-card"
             :class="{ 'is-running': service.running }"
           >
-            <div class="service-header">
-              <div class="service-info">
-                <span class="service-name">{{ service.name }}</span>
-                <span class="service-meta">{{ service.id }} | {{ getCategoryLabel(service.category) }} | 端口: {{ service.listen }}</span>
-                <a v-if="service.webUrl" @click="copyWebUrl(service.webUrl)" class="service-url">
-                  {{ service.webUrl }}
+            <div class="card-body">
+              <div class="card-top">
+                <div class="service-name-row">
+                  <span class="service-name">{{ service.name }}</span>
+                  <span class="status-badge" :class="service.running ? 'running' : 'stopped'">
+                    <span class="status-dot"></span>
+                    {{ service.running ? '运行中' : '已停止' }}
+                  </span>
+                </div>
+                <div class="service-meta-row">
+                  <span class="meta-tag category-tag">{{ getCategoryLabel(service.category) }}</span>
+                  <span class="meta-tag port-tag">端口: {{ service.listen }}</span>
+                  <span class="meta-tag id-tag">{{ service.id }}</span>
+                </div>
+                <div v-if="service.webUrl" @click="copyWebUrl(service.webUrl)" class="service-url">
+                  <div class="url-text">{{ service.webUrl }}</div>
+                  <div style="flex: 1;"></div>
                   <el-icon class="copy-icon" :size="14"><CopyDocument /></el-icon>
-                </a>
-              </div>
-              <div class="service-status" :class="getStatusClass(service.running)">
-                <span class="status-icon">{{ getStatusIcon(service.running) }}</span>
-                {{ getStatusText(service.running) }}
+                </div>
               </div>
             </div>
             
-            <div class="service-actions">
+            <div class="card-footer">
               <button 
                 class="btn btn-start" 
                 @click="startService(service)"
@@ -391,95 +386,166 @@ onUnmounted(() => {
 
 .service-card {
   background: #fff;
-  border-radius: 8px;
-  padding: 20px;
+  border-radius: 12px;
+  padding: 0;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
-  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .service-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .service-card.is-running {
-  border-left: 4px solid #67c23a;
+  border: 1px solid #e1f3d8;
 }
 
-.service-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+.service-card.is-running .card-body {
+  background: linear-gradient(135deg, #f6ffed 0%, #ffffff 100%);
 }
 
-.service-info {
+.card-body {
+  padding: 20px;
+  flex: 1;
+}
+
+.card-top {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
+}
+
+.service-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .service-name {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.service-meta {
-  font-size: 13px;
-  color: #909399;
-}
-
-.service-url {
-  color: #409eff;
-  text-decoration: none;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.service-url:hover {
-  text-decoration: underline;
-}
-
-.copy-icon {
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px;
-  border-radius: 3px;
-  transition: background 0.2s;
-  vertical-align: middle;
-  margin-left: 4px;
-}
-
-.copy-icon:hover {
-  background: #e4e7ed;
-}
-
-.service-status {
-  padding: 4px 12px;
+.status-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
 }
 
-.status-running {
+.status-badge.running {
   background: #e6f7e6;
   color: #52c41a;
 }
 
-.status-stopped {
+.status-badge.stopped {
   background: #f5f7fa;
   color: #909399;
 }
 
-.status-icon {
-  font-size: 10px;
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
-.service-actions {
+.status-badge.running .status-dot {
+  background: #52c41a;
+  animation: pulse 2s infinite;
+}
+
+.status-badge.stopped .status-dot {
+  background: #c0c4cc;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.service-meta-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.meta-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #606266;
+  background: #f4f4f5;
+}
+
+.category-tag {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+.port-tag {
+  background: #fdf6ec;
+  color: #e6a23c;
+}
+
+.id-tag {
+  background: #f4f4f5;
+  color: #909399;
+}
+
+.service-url {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #409eff;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 10px;
+  background: #f0f9ff;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.service-url:hover {
+  background: #e6f7ff;
+  text-decoration: none;
+}
+
+.url-text {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-icon {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.copy-icon:hover {
+  transform: scale(1.1);
+}
+
+.card-footer {
+  padding: 16px 20px;
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  gap: 10px;
 }
 
 .btn {
